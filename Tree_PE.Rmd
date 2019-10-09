@@ -1,0 +1,15 @@
+---
+title: "Tree_steps1"
+author: "Dr. P. M. Evans"
+date: "08/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r pacakges}
+install.packages("taxize")
+library(taxize)
+```
