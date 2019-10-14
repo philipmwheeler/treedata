@@ -1,0 +1,119 @@
+---
+title: "Tree_steps1"
+author: "Dr. P. M. Evans"
+date: "08/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# clean up
+rm(list = ls(all.names = TRUE))
+```
+
+```{r pacakges}
+#install.packages("taxize")
+#library
+```
+
+```{r datasets}
+Files<-list.files(pattern = ".csv")
+#print(Files)
+
+DF = read.csv("./trees_bristol.csv",sep=";")
+df<-DF[13395,]
+as.character(df$Latin.name)
+Spp_list<-read.csv("./specieslist_hack.csv")
+#str(DF)
+#colnames(DF)
+#DF$Latin.name
+
+tree_list<-strsplit(as.character(DF$Latin.name)," ")
+#sapply(tree_list,length)
+
+lnG <- sapply(strsplit(as.character(DF$Latin.name)," "), `[`, 1)
+lnS <- sapply(strsplit(as.character(DF$Latin.name)," "), `[`, 2)
+ln3 <- sapply(strsplit(as.character(DF$Latin.name)," "), `[`, 3)
+
+results_list<-data.frame()
+for (i in 1:length(tree_list)){
+  print(i)
+  # Extract genus name of original data
+  DF_lnG<-as.character(lnG[i])
+  # Extract species name of original data
+  DF_lnS<-as.character(lnS[i])
+  # Extract third column name of original data
+  DF_ln3<-as.character(ln3[i])
+  # List matches based upon genus of original dataset and species list
+  Species_options<-Spp_list[Spp_list$genus==DF_lnG,]
+  # List matches based upon species of original dataset and species list, using fuzzy matching    
+  Species_options2 <- Species_options[agrep(DF_lnS,Species_options$species),]
+  
+  # extract ZZ (i.e. dead) records first
+  if (DF_lnG=="ZZ"&!is.na(DF_lnG)){
+    results_2<-cbind(original_name = as.character(DF$Latin.name[i]),
+                     species_list_name = "Dead stump")
+    results_list<-rbind(results_list,results_2)
+    # if the species and genus matched
+  } else if (nrow(Species_options2)>0){
+    # if the original data only has two parts (i.e. genus and species name), output them to results
+    if (length(tree_list[[i]])==2){    
+      results_2<-cbind(original_name = as.character(DF$Latin.name[i]),
+                       species_list_name = paste(as.character(unlist(Species_options2[1,1])),
+                                                 as.character(unlist(Species_options2[1,2])))
+      )
+      results_list<-rbind(results_list,results_2)
+      # if the species has an 'x' indicating a hybrid cross
+    } else if (tolower(as.character(lnS[i]))=="x"&!is.na(DF_lnS)){
+      #print(paste("new print:",lnG[i],lnS[i]))
+      #print(paste(lnG[i],lnS[i],ln3[i]))
+      #print(paste(lnG[i],ln3[i]))
+      hybrid_name<-paste(lnG[i],ln3[i])
+      #print(hybrid_name)
+      results_x<-cbind(original_name = as.character(DF$Latin.name[i]),
+                       species_list_name = paste(lnG[i],lnS[i],ln3[i]))
+      results_list<-rbind(results_list,results_x)
+    } else if (as.character(lnS[i])=="-"&!is.na(DF_lnS)){
+      SU_name<-"Spp."
+      results_su<-cbind(original_name = as.character(DF$Latin.name[i]),
+                        species_list_name = paste(lnG[i], SU_name))
+      results_list<-rbind(results_list,results_su)
+    } else if (length(tree_list[[i]])==3){    
+      # List matches based upon species of original dataset and species list 
+      DF_ln3<-gsub("'","",DF_ln3)
+      
+      # if cv in the third column, label it as species (Spp.)
+      if (tolower(as.character(ln3[i]))=="cv"){
+        SU_name<-"Spp."
+        results_3<-cbind(original_name = as.character(DF$Latin.name[i]),
+                         species_list_name = paste(as.character(unlist(Species_options2[1,1])),
+                                                   as.character(unlist(Species_options2[1,2])),
+                                                   SU_name))
+      } else {
+        Species_op2 <- Species_options[agrep(DF_ln3,Species_options$cultivar),]
+        results_3<-cbind(original_name = as.character(DF$Latin.name[i]),
+                         species_list_name = paste(as.character(unlist(Species_options2[1,1])),
+                                                   as.character(unlist(Species_options2[1,2])),
+                                                   as.character(unlist(Species_op2[1,3]))))
+      }
+      results_list<-rbind(results_list,results_3)
+    }
+  } else {
+    # List matches based upon species of original dataset and species list, using fuzzy matching    
+    Species_op3 <- Species_options[agrep(DF_lnS,Species_options$cultivar),]
+    results_2<-cbind(original_name = as.character(DF$Latin.name[i]),
+                     species_list_name = paste(as.character(unlist(Species_options[1,1])),
+                                               as.character(unlist(Species_op3[1,3])))
+    )
+    results_list<-rbind(results_list,results_2)
+  }
+}
+
+ResultsNA<-results_list[grepl("NA",results_list$species_list_name),]
+Results_match<-results_list[!grepl("NA",results_list$species_list_name),]
+
+write.csv(Results_match,"./Matched_results_Bristol.csv")
+write.csv(ResultsNA,"./UnMatched_results_Bristol.csv")
+
+```
